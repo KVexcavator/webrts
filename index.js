@@ -2,6 +2,7 @@ const express = require("express")
 const WebSocket = require("ws")
 const http = require("http")
 const {v4: uuidv4} = require("uuid")
+const { sign } = require("crypto")
 
 const app = express()
 const port = process.env.PORT || 9000
@@ -10,7 +11,7 @@ const server = http.createServer(app)
 // инициализация экземпляра WebSocket
 const wss = new WebSocket.Server({server})
 
-const users = {}
+let users = {}
 
 const sendTo = (connection, message) => {
   connection.send(JSON.stringify(message))
@@ -38,7 +39,7 @@ wss.on("connection", ws => {
       console.log("Invalid JSON")
       data = {}
     }
-    const {type, name, offer} = data
+    const {type, name, offer, answer} = data
     // обработчик сообщений в зависимости от типа
     switch(type){
       // когда юзер пробует зарегистрироваться
@@ -68,12 +69,27 @@ wss.on("connection", ws => {
         break
       case "offer":
         // проверка, сущетвует ли пользователь, которому нужно отправить сообщение
-        const offerRecipient = user[name]
+        const offerRecipient = users[name]
         if(!!offerRecipient) {
           sendTo(offerRecipient, {
             type: "offer",
             offer,
             name: ws.name 
+          })
+        } else {
+          sendTo(ws, {
+            type: "error",
+            message: `User ${name} does not exist!`
+          })
+        }
+        break
+      case "answer":
+        // существует ли пользователь, которому надо отправить ответ
+        const answerRecipient = users[name]
+        if(!!answerRecipient){
+          sendTo(answerRecipient, {
+            type: "answer",
+            answer
           })
         } else {
           sendTo(ws, {
@@ -89,8 +105,7 @@ wss.on("connection", ws => {
         })
         break
     }
-  })
-  
+  })  
   
   // отклик при установлении соединения
   ws.send(
