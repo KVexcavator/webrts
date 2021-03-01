@@ -10,10 +10,72 @@ const server = http.createServer(app)
 // инициализация экземпляра WebSocket
 const wss = new WebSocket.Server({server})
 
+const users = {}
+
+const sendTo = (connection, message) => {
+  connection.send(JSON.stringify(message))
+}
+
+const sendToAll = (clients, type, {id, name: userName}) =>
+  Object.values(clients).forEach(client => {
+    if(client.name !== userName){
+      client.send(
+        JSON.stringify({
+          type,
+          user: {id, userName}
+        })
+      )
+    }
+  })
+
 wss.on("connection", ws => {
   ws.on("message", msg => {
-    console.log("Received  message: %s from client", msg)
+    let data
+    // проверяем что JSON
+    try {
+      data = JSON.parse(msg)
+    } catch (e) {
+      console.log("Invalid JSON")
+      data = {}
+    }
+    const {type, name} = data
+    // обработчик сообщений в зависимости от типа
+    switch(type){
+      // когда юзер пробует зарегистрироваться
+      case "login":
+        // отклик на неправильное имя
+        if(users[name]){
+          sendTo(ws, {
+            type: "login",
+            success: false,
+            message: "Username is unavailable"
+          })
+        } else {
+          const id = uuidv4()
+          const loggedIn = Object.values(
+            users
+          ).map(({id, name: userName}) => ({id, userName}))
+          users[name] = ws
+          ws.name = name
+          ws.id = id
+          sendTo(ws, {
+            type: "login",
+            success: true,
+            users: loggedIn
+          })
+          sendToAll(users, "updateUsers", ws)
+        }
+        break
+      default:
+        sendTo(ws, {
+          type: "error",
+          message: "Command not found: " + type
+        })
+        break
+    }
   })
+  
+  
   // отклик при установлении соединения
   ws.send(
     JSON.stringify({
