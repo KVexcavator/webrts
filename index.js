@@ -2,7 +2,6 @@ const express = require("express")
 const WebSocket = require("ws")
 const http = require("http")
 const {v4: uuidv4} = require("uuid")
-const { sign } = require("crypto")
 
 const app = express()
 const port = process.env.PORT || 9000
