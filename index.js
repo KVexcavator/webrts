@@ -39,7 +39,7 @@ wss.on("connection", ws => {
       console.log("Invalid JSON")
       data = {}
     }
-    const {type, name, offer, answer} = data
+    const {type, name, offer, answer, candidate} = data
     // обработчик сообщений в зависимости от типа
     switch(type){
       // когда юзер пробует зарегистрироваться
@@ -97,6 +97,25 @@ wss.on("connection", ws => {
             message: `User ${name} does not exist!`
           })
         }
+        break
+      case "candidate":
+        // существует ли пользователь, которому нужно отправить кандидата
+        const candidateRecipient = users[name]
+        if(!!candidateRecipient){
+          sendTo(candidateRecipient, {
+            type: "candidate",
+            candidate
+          })
+        } else {
+          sendTo(ws, {
+            type: "error",
+            message: `User ${name} does not exist!`
+          })
+        }
+        break
+      case "leave":
+        // обработка выхода
+        sendToAll(users, "leave", ws)
         break
       default:
         sendTo(ws, {
